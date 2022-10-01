@@ -1,31 +1,38 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import axios, { AxiosInstance } from 'axios';
+// import axios, { AxiosInstance } from 'axios';
 import { Model } from 'mongoose';
-import { Pokemon } from 'src/pokemon/entities/pokemon.entity';
+import { AxiosAdapter } from 'src/common/adapters/axios.adapter';
 import { PokemonService } from 'src/pokemon/pokemon.service';
 import { PokeResponse } from './interfaces/poke-response-interface';
 
 @Injectable()
 export class SeedService {
-
-  private readonly axios: AxiosInstance = axios;
-
+  
   //! Lo comentado fue como hecho en el curso, pero lo hice llamando al servicio de pokemon directamente, (agregue exportar el PokemonService en el PokemonModule tmb)
+
+  // private readonly axios: AxiosInstance = axios;
+
   
   constructor(
     // @InjectModel(Pokemon.name)
     // private readonly pokemonModel: Model<Pokemon>
-    private readonly pokemonService: PokemonService
+    private readonly pokemonService: PokemonService,
+    private readonly http: AxiosAdapter
   ) {
 
   }
 
   async executeSeed() {
 
-    const { data } = await this.axios.get<PokeResponse>('https://pokeapi.co/api/v2/pokemon?limit=10');
+    await this.pokemonService.removeAll(); // primero limpiamos
 
-    data.results.forEach( async ({name, url}) => {
+    // const { data } = await this.axios.get<PokeResponse>('https://pokeapi.co/api/v2/pokemon?limit=650');
+    const data = await this.http.get<PokeResponse>('https://pokeapi.co/api/v2/pokemon?limit=650');
+
+    // const promises = [];
+    const pokemonToInsert: {name: string, no: number}[] = [];
+
+    data.results.forEach(({name, url}) => {
 
       const segments = url.split('/');
 
@@ -33,9 +40,15 @@ export class SeedService {
 
       // await this.pokemonModel.create({name, no});
 
-      await this.pokemonService.create({name, no});
+      // await this.pokemonService.create({name, no});
 
+      // promises.push(this.pokemonService.create({name, no}));
+      pokemonToInsert.push({name, no});
     });
+
+    // await Promise.all(promises);
+
+    await this.pokemonService.insertMany(pokemonToInsert);
 
     return 'Seed executed';
   }
